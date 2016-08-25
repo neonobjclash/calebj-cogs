@@ -19,7 +19,7 @@ TARGET_OTHER = 'target'
 TARGET_OTHER_BLOCKABLE = 'blockable'
 TARGET_OTHER_MISSABLE = 'missable'
 
-DATA_PATH = "data/duels/"
+DATA_PATH = "data/duel/"
 JSON_PATH = DATA_PATH + "duelist.json"
 LOG_PATH = DATA_PATH + "duelist.log"
 
@@ -192,10 +192,10 @@ class Player:
         self._set_stat('draws', num)
 
 
-class Duels:
+class Duel:
     def __init__(self, bot):
         self.bot = bot
-        self.duelists = dataIO.load_json("data/duels/duelist.json")
+        self.duelists = dataIO.load_json("data/duel/duelist.json")
 
     def _set_stats(self, user, stats):
         userid = user.member.id
@@ -460,7 +460,7 @@ def dict_weight(d, top=True):
 
 def check_folders():
     if not os.path.exists(DATA_PATH):
-        print("Creating data/duels folder...")
+        print("Creating data/duel folder...")
         os.mkdir(DATA_PATH)
 		
 
@@ -474,8 +474,8 @@ def setup(bot):
     global logger
     check_folders()
     check_files()
-    n = Duels(bot)
-    logger = logging.getLogger("red.duels")
+    n = Duel(bot)
+    logger = logging.getLogger("red.duel")
     if logger.level == 0: # Prevents the logger from being loaded again in case of module reload
         logger.setLevel(logging.INFO)
         handler = logging.FileHandler(filename=LOG_PATH, encoding='utf-8', mode='a')
