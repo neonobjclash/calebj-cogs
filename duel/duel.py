@@ -459,8 +459,8 @@ def dict_weight(d, top=True):
 
 
 def check_folders():
-    if os.path.exists("data/duels")
-    	os.rename("data/duels", DATA_PATH)
+    if os.path.exists("data/duels/")
+    	os.rename("data/duels/", DATA_PATH)
     if not os.path.exists(DATA_PATH):
         print("Creating data/duel folder...")
         os.mkdir(DATA_PATH)
