@@ -19,7 +19,7 @@ TARGET_OTHER = 'target'
 TARGET_OTHER_BLOCKABLE = 'blockable'
 TARGET_OTHER_MISSABLE = 'missable'
 
-DATA_PATH = "data/duels/"
+DATA_PATH = "data/duel/"
 JSON_PATH = DATA_PATH + "duelist.json"
 LOG_PATH = DATA_PATH + "duelist.log"
 
@@ -127,6 +127,8 @@ FUMBLE = {"{a} closes in on {d}, but suddenly remembers a funny joke and laughs 
 
 BOT = {"{a} charges its laser aaaaaaaand... BZZZZZZT! {d} is now a smoking crater for daring to challenge the bot.": INITIAL_HP}
 
+BOT_PROTECT = {"{a} attacks {d} but the bot intervenes!": INITIAL_HP}
+
 HITS = ['deals', 'hits for']
 RECOVERS = ['recovers', 'gains', 'heals']
 
@@ -137,7 +139,8 @@ MOVES = {'CRITICAL': (CRITICAL, TARGET_OTHER, -2),
          'ATTACK': (ATTACK, TARGET_OTHER, -1),
          'FUMBLE': (FUMBLE, TARGET_SELF, -1),
          'HEAL': (HEAL, TARGET_SELF, 1),
-         'BOT': (BOT, TARGET_OTHER, -64)}
+         'BOT': (BOT, TARGET_OTHER, -64),
+         'BOT_PROTECT': (BOT_PROTECT, TARGET_SELF, -64)}
 
 # Weights of distribution for biased selection of moves
 WEIGHTED_MOVES = {'CRITICAL': 0.05, 'ATTACK': 1, 'FUMBLE': 0.1, 'HEAL': 0.1}
@@ -189,10 +192,10 @@ class Player:
         self._set_stat('draws', num)
 
 
-class Duels:
+class Duel:
     def __init__(self, bot):
         self.bot = bot
-        self.duelists = dataIO.load_json("data/duels/duelist.json")
+        self.duelists = dataIO.load_json("data/duel/duelist.json")
 
     def _set_stats(self, user, stats):
         userid = user.member.id
@@ -211,6 +214,71 @@ class Duels:
             return None
         else:
             return self.duelists[serverid][userid]
+            
+    @commands.command(name="protect", pass_context=True)
+    async def _protect(self, ctx, user : discord.Member=None):
+        """Adds a member to the protection list"""
+        server = ctx.message.server
+        if user is None:
+            await self.bot.say("Specify a user to add to the protection list.")
+        else:
+            try:
+                if user.id in self.duelists[server.id]["protected"]:
+                    await self.bot.say("This user is already in the protection list.")
+                else:
+                    self.duelists[server.id]["protected"].append(user.id)
+                    dataIO.save_json(JSON_PATH, self.duelists)
+                    await self.bot.say("{} has been successfully added to the protection list".format(user.mention))
+            except KeyError:
+                await self.bot.say("It seems the list doesn't exist. Rectifying that now.")
+                self.duelists[server.id]["protected"] = []
+                dataIO.save_json(JSON_PATH, self.duelists)
+                self.duelists[server.id]["protected"].append(user.id)
+                dataIO.save_json(JSON_PATH, self.duelists)
+                await self.bot.say("List created. {} has been successfully added to the protection list".format(user.mention))
+                
+    @commands.command(name="unprotect", pass_context=True)
+    async def _unprotect(self, ctx, user : discord.Member=None):
+        """Removes a member from the protection list"""
+        server = ctx.message.server
+        if user is None:
+            await self.bot.say("Specify a user to remove from the protection list.")
+        else:
+            try:
+                if user.id not in self.duelists[server.id]["protected"]:
+                    await self.bot.say("I can't remove what does not exist.")
+                else:
+                    self.duelists[server.id]["protected"].remove(user.id)
+                    dataIO.save_json(JSON_PATH, self.duelists)
+                    await self.bot.say("{} has been successfully removed from the list".format(user.mention))
+            except IndexError:
+                await self.bot.say("It seems there is no one in the protection list.")
+                await self.bot.say("Please add some people to the list with protect first.")
+            except KeyError:
+                await self.bot.say("It seems there is no protection list. Rectifying that now.")
+                self.duelists[server.id]["protected"] = []
+                dataIO.save_json(JSON_PATH, self.duelists)
+                await self.bot.say("List created. Though I can't remove what does not exist.")
+                
+    @commands.command(name="protection", pass_context=True)
+    async def _protection(self,ctx):
+        """Shows the protection list"""
+        server = ctx.message.server
+        try:
+            name_list = list(self.duelists[server.id]["protected"])
+            for i in range(len(self.duelists[server.id]["protected"])):
+                name_list[i] = str(server.get_member(name_list[i]))
+            s = "\n"
+            y = s.join(name_list)
+            await self.bot.say("Protection List:\n{}".format(y))
+        except IndexError:
+            await self.bot.say("Currently the list is empty, add more people with protect first.")
+        except KeyError:
+            await self.bot.say("It seems there is no protection list. Rectifying that now.")
+            self.duelists[server.id]["protected"] = []
+            dataIO.save_json(JSON_PATH, self.duelists)
+            await self.bot.say("List created. Currently the list is empty, add more people with protect first.")
+        
 
     @commands.command(name="duels", pass_context=True)
     @commands.cooldown(2, 60, commands.BucketType.user)
@@ -268,6 +336,7 @@ class Duels:
             await self.bot.reply("please mention a user to duel with!")
         else:
             author = ctx.message.author
+            server = ctx.message.server
             p1 = Player(self, author)
             p2 = Player(self, user)
             if user == author:
@@ -287,6 +356,8 @@ class Duels:
                         break
                     if attacker.member == ctx.message.server.me:
                         msg = self.generate_action(attacker, defender, 'BOT')
+                    elif defender.member.id in self.duelists[server.id]["protected"]:
+                        msg = self.generate_action(attacker, defender, 'BOT_PROTECT') 
                     else:
                         msg = self.generate_action(attacker, defender)
                     await self.bot.say(msg)
@@ -388,8 +459,10 @@ def dict_weight(d, top=True):
 
 
 def check_folders():
+    if os.path.exists("data/duels/")
+    	os.rename("data/duels/", DATA_PATH)
     if not os.path.exists(DATA_PATH):
-        print("Creating data/duels folder...")
+        print("Creating data/duel folder...")
         os.mkdir(DATA_PATH)
 		
 
@@ -403,8 +476,8 @@ def setup(bot):
     global logger
     check_folders()
     check_files()
-    n = Duels(bot)
-    logger = logging.getLogger("red.duels")
+    n = Duel(bot)
+    logger = logging.getLogger("red.duel")
     if logger.level == 0: # Prevents the logger from being loaded again in case of module reload
         logger.setLevel(logging.INFO)
         handler = logging.FileHandler(filename=LOG_PATH, encoding='utf-8', mode='a')
